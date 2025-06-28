@@ -1,0 +1,424 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window =
+    Rayfield:CreateWindow(
+    {
+        Name = "No-Lag Hub",
+        LoadingTitle = "By No-Lag",
+        LoadingSubtitle = "V2",
+        ConfigurationSaving = {
+            Enabled = false
+        },
+        Discord = {
+            Enabled = false
+        },
+        KeySystem = false,
+        Theme = "DarkBlue"
+    }
+)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local seedModelsContainer = nil
+local function loadSeedModels()
+    if not seedModelsContainer then
+        local success, models =
+            pcall(
+            function()
+                return game:GetObjects("rbxassetid://125869296102137")[1]
+            end
+        )
+        if success and models then
+            seedModelsContainer = models
+            models.Name = "Seed_Models"
+            models.Parent = ReplicatedStorage
+        end
+    end
+    return seedModelsContainer
+end
+
+local function getCountFromTool(tool)
+    return tonumber(tool.Name:match("%[X?(%d+)%]")) or 1
+end
+
+local function updateToolName(tool, newCount)
+    tool.Name = tool.Name:gsub("%[X?%d+%]", "[X" .. newCount .. "]")
+end
+
+local function getRandomWeight()
+    return math.random(10, 50) / 10
+end
+
+local function getSeedTool(seedName)
+    local function check(container)
+        for _, tool in pairs(container:GetChildren()) do
+            if tool:IsA("Tool") and tool.Name:match("^" .. seedName .. " Seed %[%u%d+%]$") then
+                return tool
+            end
+        end
+        return nil
+    end
+    return check(LocalPlayer.Backpack) or check(LocalPlayer.Character)
+end
+
+local function getPetTool(petName)
+    local function check(container)
+        for _, tool in pairs(container:GetChildren()) do
+            if tool:IsA("Tool") and tool:GetAttribute("PetNamee") == petName then
+                return tool
+            end
+        end
+        return nil
+    end
+    return check(LocalPlayer.Backpack) or check(LocalPlayer.Character)
+end
+
+-- === PET TAB ===
+local PetTab = Window:CreateTab("🐾 Pets", 4483362458)
+
+local petNameInput = ""
+PetTab:CreateInput(
+    {
+        Name = "Pet Name",
+        PlaceholderText = "e.g. Raccoon, Cat, Dog",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(Text)
+            petNameInput = Text
+        end
+    }
+)
+
+local function spawnPet(petName)
+    if not petName or petName == "" then
+        Rayfield:Notify(
+            {
+                Title = "Error",
+                Content = "Please enter a pet name!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local success, petModels =
+        pcall(
+        function()
+            return game:GetObjects("rbxassetid://118358827691673")[1]
+        end
+    )
+
+    if not success or not petModels then
+        Rayfield:Notify(
+            {
+                Title = "Error",
+                Content = "Failed to load pet models!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local petModel = petModels:FindFirstChild(petName)
+    if not petModel then
+        Rayfield:Notify(
+            {
+                Title = "Pet Not Found",
+                Content = "Pet '" .. petName .. "' doesn't exist!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local tool = getPetTool(petName)
+    if tool then
+        local count = getCountFromTool(tool)
+        updateToolName(tool, count + 1)
+        Rayfield:Notify(
+            {
+                Title = "Success",
+                Content = "Added " .. petName .. "! (Total: " .. (count + 1) .. ")",
+                Duration = 2,
+                Image = 4483362458
+            }
+        )
+    else
+        local newTool = Instance.new("Tool")
+        newTool.Name = petName .. "\n[" .. getRandomWeight() .. " KG]\n[Age 1]"
+        newTool.RequiresHandle = true
+        newTool:SetAttribute("PetNamee", petName)
+
+        local handle = Instance.new("Part")
+        handle.Name = "Handle"
+        handle.Size = Vector3.new(1, 1, 1)
+        handle.Transparency = 1
+        handle.CanCollide = false
+        handle.Massless = true
+        handle.Anchored = false
+        handle.Parent = newTool
+
+        local clonedPet = petModel:Clone()
+        clonedPet.Parent = newTool
+
+        local mainPart = clonedPet:FindFirstChildWhichIsA("BasePart")
+        local weld = Instance.new("Weld")
+        weld.Part0 = handle
+        weld.Part1 = mainPart
+        weld.C0 = CFrame.new(-0.3, 1.5, -1.5) * CFrame.Angles(math.rad(-90), math.rad(-85), 0)
+        weld.Parent = handle
+
+        for _, p in pairs(clonedPet:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.Anchored = false
+                p.CanCollide = false
+                p.Massless = true
+            end
+        end
+
+        newTool.Activated:Connect(
+            function()
+                local toolCount = getCountFromTool(newTool)
+                if toolCount > 1 then
+                    updateToolName(newTool, toolCount - 1)
+                else
+                    newTool:Destroy()
+                end
+            end
+        )
+
+        newTool.Parent = LocalPlayer.Backpack
+
+        Rayfield:Notify(
+            {
+                Title = "Success",
+                Content = "Spawned " .. petName .. "!",
+                Duration = 2,
+                Image = 4483362458
+            }
+        )
+    end
+end
+
+PetTab:CreateButton(
+    {
+        Name = "🐾 Spawn Pet",
+        Callback = function()
+            spawnPet(petNameInput)
+        end
+    }
+)
+
+-- === SEED TAB ===
+local SeedTab = Window:CreateTab("🌱 Seeds", 4483362458)
+
+local seedNameInput = ""
+SeedTab:CreateInput(
+    {
+        Name = "Seed Name",
+        PlaceholderText = "e.g. Carrot, Tomato, Corn",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(Text)
+            seedNameInput = Text
+        end
+    }
+)
+
+local function spawnSeed(seedName)
+    if not seedName or seedName == "" then
+        Rayfield:Notify(
+            {
+                Title = "Error",
+                Content = "Please enter a seed name!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local seedModels = loadSeedModels()
+    if not seedModels then
+        Rayfield:Notify(
+            {
+                Title = "Error",
+                Content = "Failed to load seed models!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local model = seedModels:FindFirstChild(seedName)
+    if not model then
+        Rayfield:Notify(
+            {
+                Title = "Seed Not Found",
+                Content = "Seed '" .. seedName .. "' doesn't exist!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local tool = getSeedTool(seedName)
+    if tool then
+        local count = getCountFromTool(tool)
+        updateToolName(tool, count + 1)
+        Rayfield:Notify(
+            {
+                Title = "Success",
+                Content = "Added " .. seedName .. " seed! (Total: " .. (count + 1) .. ")",
+                Duration = 2,
+                Image = 4483362458
+            }
+        )
+    else
+        local newTool = Instance.new("Tool")
+        newTool.Name = seedName .. " Seed [X1]"
+        newTool:SetAttribute("SeedName", seedName)
+        newTool:SetAttribute("Quantity", 1)
+        newTool:SetAttribute("Placable", true)
+        newTool.RequiresHandle = true
+        newTool.CanBeDropped = true
+        newTool.GripPos = Vector3.new(0.2, -0.45, 0.23)
+
+        local handle = model:Clone()
+        handle.Name = "Handle"
+        handle.Parent = newTool
+        handle.CanCollide = false
+        handle.Anchored = false
+
+        newTool.Activated:Connect(
+            function()
+                local toolCount = getCountFromTool(newTool)
+                if toolCount > 1 then
+                    updateToolName(newTool, toolCount - 1)
+                else
+                    newTool:Destroy()
+                end
+            end
+        )
+
+        newTool.Parent = LocalPlayer.Backpack
+
+        Rayfield:Notify(
+            {
+                Title = "Success",
+                Content = "Spawned " .. seedName .. " seed!",
+                Duration = 2,
+                Image = 4483362458
+            }
+        )
+    end
+end
+
+SeedTab:CreateButton(
+    {
+        Name = "🌱 Spawn Seed",
+        Callback = function()
+            spawnSeed(seedNameInput)
+        end
+    }
+)
+
+-- === EGG TAB ===
+local EggTab = Window:CreateTab("🥚 Eggs", 4483362458)
+
+local eggNameInput = ""
+EggTab:CreateInput(
+    {
+        Name = "Egg Name",
+        PlaceholderText = "e.g. Night Egg, Golden Egg",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(Text)
+            eggNameInput = Text
+        end
+    }
+)
+
+local function spawnEgg(eggName)
+    if not eggName or eggName == "" then
+        Rayfield:Notify(
+            {
+                Title = "Error",
+                Content = "Please enter an egg name!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local eggModels = ReplicatedStorage:FindFirstChild("Assets")
+    if eggModels then
+        eggModels = eggModels:FindFirstChild("Models")
+        if eggModels then
+            eggModels = eggModels:FindFirstChild("EggModels")
+        end
+    end
+
+    if not eggModels then
+        Rayfield:Notify(
+            {
+                Title = "Error",
+                Content = "Egg models not found in game!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local model = eggModels:FindFirstChild(eggName)
+    if not model then
+        Rayfield:Notify(
+            {
+                Title = "Egg Not Found",
+                Content = "Egg '" .. eggName .. "' doesn't exist!",
+                Duration = 3,
+                Image = 4483362458
+            }
+        )
+        return
+    end
+
+    local tool = Instance.new("Tool")
+    tool.Name = eggName .. " Egg"
+    tool.RequiresHandle = true
+    tool:SetAttribute("ItemType", "Egg")
+    tool.CanBeDropped = true
+
+    local handle = model:Clone()
+    handle.Name = "Handle"
+    handle.Parent = tool
+    handle.CanCollide = false
+    handle.Anchored = false
+
+    tool.GripPos = Vector3.new(0, -0.5, 0)
+    tool.Parent = LocalPlayer.Backpack
+
+    Rayfield:Notify(
+        {
+            Title = "Success",
+            Content = "Spawned " .. eggName .. "!",
+            Duration = 2,
+            Image = 4483362458
+        }
+    )
+end
+
+EggTab:CreateButton(
+    {
+        Name = "🥚 Spawn Egg",
+        Callback = function()
+            spawnEgg(eggNameInput)
+        end
+    }
+)
